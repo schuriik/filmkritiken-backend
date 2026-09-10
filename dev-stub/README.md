@@ -39,13 +39,15 @@ Environment variables: `PORT` (default `8080`), `FRONTEND_URL` (default
 | GET | `/api/filmkritiken/:id` | 404 when unknown |
 | GET | `/api/images/:imageId` | poster bytes |
 | PUT | `/api/filmkritiken/:id/bewertungen/:username` | needs `bewertung.add` |
-| PATCH | `/api/filmkritiken/:id/bewertungenoffen/:offen` | needs `bewertung.add` |
+| PATCH | `/api/filmkritiken/:id/bewertungenoffen/:offen` | needs `bewertung.openclose` |
+| PATCH | `/api/filmkritiken/:id/besprochenAm` | needs `film.add`, body `{"besprochenam": "<RFC 3339>"}` |
 | POST | `/api/filme` | needs `film.add`, multipart `json` + `image` |
 | GET | `/auth/login` | no Entra: logs you straight in and redirects to the frontend |
 | GET | `/auth/me` | 401 without session |
 | POST | `/auth/logout` | |
 
-`/auth/login` grants `film.add` and `bewertung.add`, so the write flows are clickable.
+`/auth/login` grants `film.add`, `bewertung.add` and `bewertung.openclose`, i.e. every
+permission the real backend checks, so all write flows are clickable.
 Not covered: `/metrics`, real Entra OAuth.
 
 ## Differences from the real backend

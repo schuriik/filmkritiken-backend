@@ -18,7 +18,11 @@ const PORT = Number(process.env.PORT || 8080)
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 const POSTER_DIR = path.join(__dirname, '..', 'cmd', 'seed', 'posters')
 const SESSION_COOKIE = 'session_id'
-const STUB_USER = { name: 'Local Dev', permissions: ['film.add', 'bewertung.add'] }
+const STUB_USER = {
+  name: 'Local Dev',
+  // every permission the real backend checks, see http/inbound/Server.go
+  permissions: ['film.add', 'bewertung.add', 'bewertung.openclose'],
+}
 
 const newId = () => crypto.randomBytes(12).toString('hex')
 
@@ -359,7 +363,7 @@ async function route(req, res, url, segments) {
 
   // PATCH /api/filmkritiken/:id/bewertungenoffen/:offen
   if (method === 'PATCH' && segments[1] === 'filmkritiken' && segments[3] === 'bewertungenoffen' && segments[4]) {
-    if (!requirePermission(req, res, 'bewertung.add')) {
+    if (!requirePermission(req, res, 'bewertung.openclose')) {
       return
     }
 
@@ -370,6 +374,44 @@ async function route(req, res, url, segments) {
     }
 
     item.details.bewertungoffen = segments[4] === 'true'
+    res.writeHead(204)
+    res.end()
+    return
+  }
+
+  // PATCH /api/filmkritiken/:id/besprochenAm
+  if (method === 'PATCH' && segments[1] === 'filmkritiken' && segments[3] === 'besprochenAm') {
+    if (!requirePermission(req, res, 'film.add')) {
+      return
+    }
+
+    const item = filmkritiken.get(decodeURIComponent(segments[2]))
+    if (!item) {
+      sendJson(res, 404, { error: 'Filmkritiken konnten nicht gefunden werden.' })
+      return
+    }
+
+    let body
+    try {
+      body = JSON.parse((await readBody(req)).toString() || '{}')
+    } catch {
+      sendJson(res, 400, { error: 'invalid json' })
+      return
+    }
+
+    // Go binds the missing field to the zero time and rejects anything that is
+    // not RFC 3339, so mirror both cases here.
+    let besprochenam = '0001-01-01T00:00:00Z'
+    if (body.besprochenam !== undefined && body.besprochenam !== null) {
+      const parsed = new Date(body.besprochenam)
+      if (Number.isNaN(parsed.getTime())) {
+        sendJson(res, 400, { error: 'besprochenam muss ein RFC-3339-Datum sein' })
+        return
+      }
+      besprochenam = parsed.toISOString()
+    }
+
+    item.details.besprochenam = besprochenam
     res.writeHead(204)
     res.end()
     return
