@@ -23,3 +23,6 @@ main
 
 # Lokale Secrets – nie committen
 /config/local.secrets.env
+
+# Claude Code local settings (may contain tokens/paths)
+.claude/settings.local.json
