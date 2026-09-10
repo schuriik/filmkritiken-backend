@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/DerBlum/filmkritiken-backend/infrastructure/db/mongo"
+	"github.com/DerBlum/filmkritiken-backend/infrastructure/db/seed"
 	"github.com/caarlos0/env/v11"
 	log "github.com/sirupsen/logrus"
 )
@@ -21,7 +22,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := seedIfEmpty(context.Background(), mongoDbRepository); err != nil {
+	if err := seed.SeedIfEmpty(context.Background(), mongoDbRepository); err != nil {
 		log.Fatalf("Seeding failed: %v", err)
 	}
 

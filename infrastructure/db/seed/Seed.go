@@ -1,4 +1,4 @@
-package main
+package seed
 
 import (
 	"context"
@@ -16,7 +16,7 @@ type Repository interface {
 	SaveFilmkritiken(ctx context.Context, filmkritiken *filmkritiken.Filmkritiken) error
 }
 
-func seedIfEmpty(ctx context.Context, repo Repository) error {
+func SeedIfEmpty(ctx context.Context, repo Repository) error {
 	existing, _, err := repo.GetFilmkritiken(ctx, &filmkritiken.FilmkritikenFilter{Limit: 1})
 	if err != nil {
 		log.Warnf("Could not check if database is empty: %v", err)

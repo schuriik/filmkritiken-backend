@@ -4,8 +4,11 @@ import (
 	"context"
 
 	"github.com/DerBlum/filmkritiken-backend/domain/filmkritiken"
+	"github.com/DerBlum/filmkritiken-backend/domain/session"
 	httpInbound "github.com/DerBlum/filmkritiken-backend/http/inbound"
+	"github.com/DerBlum/filmkritiken-backend/infrastructure/db/memory"
 	"github.com/DerBlum/filmkritiken-backend/infrastructure/db/mongo"
+	"github.com/DerBlum/filmkritiken-backend/infrastructure/db/seed"
 	"github.com/caarlos0/env/v11"
 	log "github.com/sirupsen/logrus"
 )
@@ -14,14 +17,21 @@ type LogConfig struct {
 	LogLevel string `env:"LOG_LEVEL" envDefault:"INFO"`
 }
 
+// PersistenceConfig selects the storage backend. "mongo" is the default,
+// "memory" runs without a database for local development (all data is lost on exit).
+type PersistenceConfig struct {
+	Persistence string `env:"PERSISTENCE" envDefault:"mongo"`
+}
+
+type repository interface {
+	filmkritiken.FilmkritikenRepository
+	filmkritiken.ImageRepository
+	session.SessionRepository
+}
+
 func main() {
 	log.SetLevel(getLogLevel())
 	log.Info("starting filmkritiken-backend")
-
-	mongoConfig := mongo.Config{}
-	if err := env.Parse(&mongoConfig); err != nil {
-		panic(err)
-	}
 
 	serverConfig := httpInbound.ServerConfig{}
 	if err := env.Parse(&serverConfig); err != nil {
@@ -33,16 +43,39 @@ func main() {
 		panic(err)
 	}
 
-	mongoDbRepository, err := mongo.NewMongoDbRepository(context.Background(), &mongoConfig)
+	repo, err := newRepository(context.Background())
 	if err != nil {
 		panic(err)
 	}
-	filmkritikenService := filmkritiken.NewFilmkritikenService(mongoDbRepository, mongoDbRepository)
+	filmkritikenService := filmkritiken.NewFilmkritikenService(repo, repo)
 
-	err = httpInbound.StartServer(&serverConfig, &authConfig, filmkritikenService, mongoDbRepository)
+	err = httpInbound.StartServer(&serverConfig, &authConfig, filmkritikenService, repo)
 	if err != nil {
 		panic(err)
 	}
+}
+
+func newRepository(ctx context.Context) (repository, error) {
+	persistenceConfig := PersistenceConfig{}
+	if err := env.Parse(&persistenceConfig); err != nil {
+		return nil, err
+	}
+
+	if persistenceConfig.Persistence == "memory" {
+		log.Warn("using in-memory persistence - all data is lost when the process exits")
+		memoryRepository := memory.NewMemoryRepository()
+		if err := seed.SeedIfEmpty(ctx, memoryRepository); err != nil {
+			return nil, err
+		}
+		return memoryRepository, nil
+	}
+
+	mongoConfig := mongo.Config{}
+	if err := env.Parse(&mongoConfig); err != nil {
+		return nil, err
+	}
+
+	return mongo.NewMongoDbRepository(ctx, &mongoConfig)
 }
 
 func getLogLevel() log.Level {
